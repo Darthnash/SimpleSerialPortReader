@@ -48,38 +48,37 @@ int main ()
 	memset(&tty, 0, sizeof(tty));  // fill memory space of tty with 0 (reset values)
 
 	/* error handling */
-	if(tcgetattr(fd, &tty) != 0)  // tcgetattr: get parameters that are associated with the terminal and store them in termios structure
-	{
-		fprintf(stderr, "error %d from tcgetattr", errno);  // display error code
-		exit(-1); // terminate program
-	}
-	else
-	{
-		printf("tcgetattr() succeeded.\n");
-	}
+	// if(tcgetattr(fd, &tty) != 0)  // tcgetattr: get parameters that are associated with the terminal and store them in termios structure
+	// {
+	// 	fprintf(stderr, "error %d from tcgetattr", errno);  // display error code
+	// 	exit(-1); // terminate program
+	// }
+	// else
+	// {
+	// 	printf("tcgetattr() succeeded.\n");
+	// }
 
 	/* configure terminal */
 	cfsetispeed(&tty, B19200);  // set input speed to Baudrate 19,200
 
 	// basic terminal input control
-	tty.c_iflag = IGNPAR | ICRNL;
+	// tty.c_iflag = IGNPAR | ICRNL;
+  //
+	// // basic terminal output control
+	// tty.c_oflag = 0;
+  //
+	// // hardware control of the terminal
+	// tty.c_cflag |= (CS8 | CREAD | CLOCAL);  // force 8bit input, enable receiver, ignore modem conrol lines
+  //
+	// // control various terminal functions
+	// tty.c_lflag = ICANON;
+  //
+	// // control characters
+	// tty.c_cc[VEOF]	= 4;  // Ctrl-d
+	// tty.c_cc[VMIN]	= 1;  // read() is satisfied with # character byte(s)
+	// tty.c_cc[VTIME] = 0;  // inter-character timer off
 
-	// basic terminal output control
-	tty.c_oflag = 0;
 
-	// hardware control of the terminal
-	tty.c_cflag |= (CS8 | CREAD | CLOCAL);  // force 8bit input, enable receiver, ignore modem conrol lines
-
-	// control various terminal functions
-	tty.c_lflag = ICANON;
-
-	// control characters
-	tty.c_cc[VEOF]	= 4;  // Ctrl-d
-	tty.c_cc[VMIN]	= 1;  // read() is satisfied with # character byte(s)
-	tty.c_cc[VTIME] = 0;  // inter-character timer off
-
-	// treat unused data
-	tcflush(fd, TCIFLUSH);  // discards unread data
 
 	/* error handling */
 	if(tcsetattr(fd, TCSANOW, &tty) != 0)  // change will occur immediately
@@ -120,22 +119,27 @@ int main ()
 
 	int n = 0;  // number of bytes that were read
 
+	// treat unused data
+	tcflush(fd, TCIFLUSH);  // discards unread data
+
 	while(STOP == FALSE)  // error handling to cancel loop?
 	{
-		printf(".\n");
-		sleep(1);  // sleep for 1 second
+		// printf(".\n");
+		pause();  // wait for signal
 
 		if(wait_flag == FALSE)
 		{
 			n = read(fd, buf, sizeof(buf));  // read from input buffer
 			buf[n] = 0;  // set end of string so we can use printf
-			printf(":%s:%d\n", buf, n);
+			printf("%s", buf);
+			fflush(stdout);
 
-			if (n == 1)
-			{
-				STOP = TRUE;  // stop loop if only a CR was input
-				wait_flag = TRUE;  // wait for new input
-			}
+			wait_flag = TRUE;
+			// if (n == 1)
+			// {
+			// 	STOP = TRUE;  // stop loop if only a CR was input
+			// 	wait_flag = TRUE;  // wait for new input
+			// }
 		}
 	}
 
@@ -146,7 +150,7 @@ int main ()
 /* signal handler */
 void signal_handler_IO (int status)
 {
-	printf("received SIGIO signal.\n");
+	// printf("received SIGIO signal.\n");
 	wait_flag = FALSE;  // indicate reception of characters
 }
 

@@ -1,3 +1,4 @@
+* obligatory cleanup 
 * sending to serial port
 * NCURSES GUI
-* GTK GUI 
+* GTK GUI
