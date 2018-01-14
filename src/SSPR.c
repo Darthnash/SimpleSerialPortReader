@@ -63,7 +63,7 @@ int main ()
 	cfsetispeed(&tty, B19200);  // set input speed to Baudrate 19,200
 
 	// basic terminal input control
-	// tty.c_iflag = IGNPAR | ICRNL;
+	tty.c_iflag = IGNPAR;
   //
 	// // basic terminal output control
 	// tty.c_oflag = 0;
@@ -95,14 +95,16 @@ int main ()
 	/* signal handler */
 	struct sigaction saio;  // definition of signal signal action
 	saio.sa_handler = signal_handler_IO;
-	sigset_t set_empty;
-	sigemptyset(&set_empty);
-	saio.sa_mask = set_empty;
+	sigemptyset(&saio.sa_mask);
+	// sigset_t set_empty;
+	// sigemptyset(&set_empty);
+	// saio.sa_mask = set_empty;
 	//saio.sa_flags = 0;
 	//saio.sa_restorer = NULL;
 	if(sigaction(SIGIO, &saio, NULL) < 0)  // what is this doing??
 	{
 		fprintf(stderr, "%s: sigaction() failed.\n", portname);
+		exit(-1);  // terminate program
 	}
 	else
 	{
@@ -117,8 +119,25 @@ int main ()
 	sigemptyset(&set_block);
 	sigaddset(&set_block, SIGIO);
 
-	fcntl(fd, F_SETOWN, getpid());  // allow process to receive SIGIO
-	fcntl(fd, F_SETFL, O_ASYNC);  // make file descriptor asyncronous
+	if(fcntl(fd, F_SETOWN, getpid()) < 0)  // allow process to receive SIGIO
+	{
+		fprintf(stderr, "%s: fcntl(fd, F_SETOWN, getpid()) failed.\n", portname);
+		exit(-1);  // terminate program
+	}
+	else
+	{
+		printf("fcntl(fd, F_SETOWN, getpid()) succeeded.\n");
+	}
+
+	if(fcntl(fd, F_SETFL, O_ASYNC) < 0)  // make file descriptor asyncronous
+	{
+		fprintf(stderr, "%s: fcntl(fd, F_SETFL, O_ASYNC) failed.\n", portname);
+		exit(-1);  // terminate program
+	}
+	else
+	{
+		printf("fcntl(fd, F_SETFL, O_ASYNC) succeeded.\n");
+	}
 
 	/* read character byte */
 	unsigned char buf[255];  // input buffer
@@ -135,14 +154,19 @@ int main ()
 
 		if(wait_flag == FALSE)
 		{
-			sigprocmask(SIG_BLOCK, &set_block, NULL);
+			// sigprocmask(SIG_BLOCK, &set_block, NULL);
 			n = read(fd, buf, sizeof(buf));  // read from input buffer
+			if(n < 0)
+			{
+				printf("read() failed.\n");
+				exit(-1);  // terminate program 
+			}
 			buf[n] = 0;  // set end of string so we can use printf
 			printf("%s", buf);
 			fflush(stdout);
 
 			wait_flag = TRUE;
-			sigprocmask(SIG_UNBLOCK, &set_block, NULL);
+			// sigprocmask(SIG_UNBLOCK, &set_block, NULL);
 			// if (n == 1)
 			// {
 			// 	STOP = TRUE;  // stop loop if only a CR was input
