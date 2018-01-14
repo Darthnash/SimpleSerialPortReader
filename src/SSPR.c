@@ -31,6 +31,7 @@ int main ()
 // const char *portname = "/dev/ttyACM0";  // COM Port of connected device
 	const char *portname = "/dev/ttyUSB0";
 	fd = open(portname, O_RDONLY | O_NOCTTY | O_NONBLOCK);  // open Port for reading and catch return value, returns descriptor of new file
+	// fd = open(portname, O_RDONLY | O_NOCTTY);
 
 	/* error handling */
 	if (fd < 0)
@@ -94,8 +95,9 @@ int main ()
 	/* signal handler */
 	struct sigaction saio;  // definition of signal signal action
 	saio.sa_handler = signal_handler_IO;
-	//sigemptyset(&saio.sa_mask);
-	//sigaddset(&saio.sa_mask, SIGINT);  // what is this doing??
+	sigset_t set_empty;
+	sigemptyset(&set_empty);
+	saio.sa_mask = set_empty;
 	//saio.sa_flags = 0;
 	//saio.sa_restorer = NULL;
 	if(sigaction(SIGIO, &saio, NULL) < 0)  // what is this doing??
@@ -110,6 +112,10 @@ int main ()
 	struct sigaction act_int;
 	act_int.sa_handler = signal_int;
 	sigaction(SIGINT, &act_int, NULL);
+
+	sigset_t set_block;
+	sigemptyset(&set_block);
+	sigaddset(&set_block, SIGIO);
 
 	fcntl(fd, F_SETOWN, getpid());  // allow process to receive SIGIO
 	fcntl(fd, F_SETFL, O_ASYNC);  // make file descriptor asyncronous
@@ -129,12 +135,14 @@ int main ()
 
 		if(wait_flag == FALSE)
 		{
+			sigprocmask(SIG_BLOCK, &set_block, NULL);
 			n = read(fd, buf, sizeof(buf));  // read from input buffer
 			buf[n] = 0;  // set end of string so we can use printf
 			printf("%s", buf);
 			fflush(stdout);
 
 			wait_flag = TRUE;
+			sigprocmask(SIG_UNBLOCK, &set_block, NULL);
 			// if (n == 1)
 			// {
 			// 	STOP = TRUE;  // stop loop if only a CR was input
