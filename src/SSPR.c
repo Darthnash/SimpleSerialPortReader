@@ -22,7 +22,7 @@ void signal_handler_IO (int status);  // definition of SIGIO signal handler
 void signal_int (int status);  // definition of SIGINT signal handler
 
 static volatile int STOP = FALSE;
-static int wait_flag = TRUE;  // TRUE while no signal received
+static volatile int wait_flag = TRUE;  // TRUE while no signal received
 static int fd;  // file descriptor of serial port
 
 int main ()
@@ -149,17 +149,20 @@ int main ()
 
 	while(STOP == FALSE)  // error handling to cancel loop?
 	{
+		printf("waiting..."); fflush(stdout);
 		// printf(".\n");
-		pause();  // wait for signal
-
+		// pause();  // wait for signal
+		pause();
 		if(wait_flag == FALSE)
 		{
+			printf("reading..."); fflush(stdout);
 			// sigprocmask(SIG_BLOCK, &set_block, NULL);
 			n = read(fd, buf, sizeof(buf));  // read from input buffer
+			printf("OK..."); fflush(stdout);
 			if(n < 0)
 			{
 				printf("read() failed.\n");
-				exit(-1);  // terminate program 
+				exit(-1);  // terminate program
 			}
 			buf[n] = 0;  // set end of string so we can use printf
 			printf("%s", buf);
@@ -182,8 +185,9 @@ int main ()
 /* signal handler */
 void signal_handler_IO (int status)
 {
+	printf("SIGIO..."); fflush(stdout);
 	// printf("received SIGIO signal.\n");
-	wait_flag = FALSE;  // indicate reception of characters
+	wait_flag = FALSE;  // indicate reception of characters"
 }
 
 void signal_int (int signum)
