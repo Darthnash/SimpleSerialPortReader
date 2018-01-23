@@ -93,55 +93,18 @@ int main ()
 	}
 
 	/* signal handler */
-	struct sigaction saio;  // definition of signal signal action
-	saio.sa_handler = signal_handler_IO;
-	sigemptyset(&saio.sa_mask);
-	// sigset_t set_empty;
-	// sigemptyset(&set_empty);
-	// saio.sa_mask = set_empty;
-	//saio.sa_flags = 0;
-	//saio.sa_restorer = NULL;
-	if(sigaction(SIGIO, &saio, NULL) < 0)  // what is this doing??
-	{
-		fprintf(stderr, "%s: sigaction() failed.\n", portname);
-		exit(-1);  // terminate program
-	}
-	else
-	{
-		printf("sigaction() succeeded.\n");
-	}
-
 	struct sigaction act_int;
 	act_int.sa_handler = signal_int;
 	sigaction(SIGINT, &act_int, NULL);
 
-	sigset_t set_block;
-	sigemptyset(&set_block);
-	sigaddset(&set_block, SIGIO);
+	/* init select() */
+	fd_set rfds;  // define read file descriptor set
+	int retval;  // return value of select()
+	FD_ZERO(&rfds);  // empty rfds
+	FD_SET(fd, &rfds);  // include fd in rfds
 
-	if(fcntl(fd, F_SETOWN, getpid()) < 0)  // allow process to receive SIGIO
-	{
-		fprintf(stderr, "%s: fcntl(fd, F_SETOWN, getpid()) failed.\n", portname);
-		exit(-1);  // terminate program
-	}
-	else
-	{
-		printf("fcntl(fd, F_SETOWN, getpid()) succeeded.\n");
-	}
-
-	if(fcntl(fd, F_SETFL, O_ASYNC) < 0)  // make file descriptor asyncronous
-	{
-		fprintf(stderr, "%s: fcntl(fd, F_SETFL, O_ASYNC) failed.\n", portname);
-		exit(-1);  // terminate program
-	}
-	else
-	{
-		printf("fcntl(fd, F_SETFL, O_ASYNC) succeeded.\n");
-	}
-
-	/* read character byte */
+	/* prepare input reception */
 	unsigned char buf[255];  // input buffer
-
 	int n = 0;  // number of bytes that were read
 
 	// treat unused data
@@ -149,32 +112,24 @@ int main ()
 
 	while(STOP == FALSE)  // error handling to cancel loop?
 	{
-		printf("waiting..."); fflush(stdout);
-		// printf(".\n");
-		// pause();  // wait for signal
-		pause();
-		if(wait_flag == FALSE)
+		retval = select(fd+1, &rfds, NULL, NULL, NULL);  // select blocks indefinitely
+
+		if(retval == -1)
 		{
-			printf("reading..."); fflush(stdout);
-			// sigprocmask(SIG_BLOCK, &set_block, NULL);
+			fprintf(stderr, "error %d from select", errno);  // display error code
+			exit(-1);  // terminate program
+		}
+		else if(retval)
+		{
 			n = read(fd, buf, sizeof(buf));  // read from input buffer
-			printf("OK..."); fflush(stdout);
 			if(n < 0)
 			{
-				printf("read() failed.\n");
+				fprintf(stderr, "read() failed.\n");
 				exit(-1);  // terminate program
 			}
 			buf[n] = 0;  // set end of string so we can use printf
-			printf("%s", buf);
-			fflush(stdout);
-
-			wait_flag = TRUE;
-			// sigprocmask(SIG_UNBLOCK, &set_block, NULL);
-			// if (n == 1)
-			// {
-			// 	STOP = TRUE;  // stop loop if only a CR was input
-			// 	wait_flag = TRUE;  // wait for new input
-			// }
+			printf("%s", buf);  // print received characters to console
+			fflush(stdout);  // flush stdout
 		}
 	}
 
