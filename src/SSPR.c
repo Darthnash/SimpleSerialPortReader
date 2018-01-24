@@ -29,7 +29,7 @@ int main ()
 {
 	/* open port */
 	const char *portname = "/dev/ttyUSB0";  // COM Port of connected device
-	fd = open(portname, O_RDONLY | O_NOCTTY | O_NONBLOCK);  // open Port for reading and catch return value, returns descriptor of new file
+	fd = open(portname, O_RDWR | O_NOCTTY | O_NONBLOCK);  // open Port for reading and catch return value, returns descriptor of new file
 
 	/* error handling */
 	if (fd < 0)
@@ -64,15 +64,16 @@ int main ()
 	}
 
 	/* signal handler */
-	struct sigaction act_int;
-	act_int.sa_handler = signal_int;
-	sigaction(SIGINT, &act_int, NULL);
+	struct sigaction act_int;  // declare keyboard interrupt signal action
+	act_int.sa_handler = signal_int;  // define signal handler
+	sigaction(SIGINT, &act_int, NULL);  // link SIGINT to signal action
 
 	/* init select() */
 	fd_set rfds;  // define read file descriptor set
 	int retval;  // return value of select()
 	FD_ZERO(&rfds);  // empty rfds
 	FD_SET(fd, &rfds);  // include fd in rfds
+	FD_SET(STDIN_FILENO, &rfds);  // include stdin in rfds
 
 	/* prepare input reception */
 	unsigned char buf[255];  // input buffer
@@ -83,24 +84,36 @@ int main ()
 
 	while(STOP == FALSE)  // error handling to cancel loop?
 	{
+		/* re-initialization of monitored file descriptor sets */
+		FD_SET(fd, &rfds);  // include fd in rfds
+		FD_SET(STDIN_FILENO, &rfds);  // include stdin in rfds
+
 		retval = select(fd+1, &rfds, NULL, NULL, NULL);  // select blocks indefinitely
 
-		if(retval == -1)
+		if(retval < 0)
 		{
 			fprintf(stderr, "error %d from select", errno);  // display error code
 			exit(-1);  // terminate program
 		}
-		else if(retval)
+
+		/* check for active file descriptor */
+		if(FD_ISSET(fd, &rfds))  // data on serial port available
 		{
 			n = read(fd, buf, sizeof(buf));  // read from input buffer
 			if(n < 0)
 			{
-				fprintf(stderr, "read() failed.\n");
+				fprintf(stderr, "read() on serial port failed.\n");  // display error message
 				exit(-1);  // terminate program
 			}
 			buf[n] = 0;  // set end of string so we can use printf
 			printf("%s", buf);  // print received characters to console
 			fflush(stdout);  // flush stdout
+		}
+		else if(FD_ISSET(STDIN_FILENO, &rfds))  // data on stdin available
+		{
+			n = read(STDIN_FILENO, buf, sizeof(buf));  // read from input buffer
+			buf[n] = 0;  // set end of string so we can use printf
+			write(fd, buf, sizeof(buf));  // write to serial port
 		}
 	}
 
@@ -111,8 +124,8 @@ int main ()
 /* signal handler */
 void signal_int (int signum)
 {
-	printf("\nclosing file descriptor.\n");
-	close(fd);
-	signal(SIGINT, SIG_DFL);
-	kill(getpid(), SIGINT);
+	printf("\nclosing file descriptor.\n");  // message
+	close(fd);  // close serial port file descriptor
+	signal(SIGINT, SIG_DFL);  // reset SIGINT to default handler
+	kill(getpid(), SIGINT);  // process terminates itself
 }
